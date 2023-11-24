@@ -1,23 +1,16 @@
 use std::fmt;
+use crate::field_lens::{ UNAME_LEN, MSGLEN_LEN, TOKEN_LEN, METHOD_LEN, ERR_CODE_LEN };
 
-mod msg_field_lens {
-    pub const UNAME_LEN: usize = 50;
-    pub const MSGLEN_LEN: usize = 4;
-}
-
-use msg_field_lens::{UNAME_LEN, MSGLEN_LEN};
-
-
-pub struct Message {
+pub struct ChatMessage {
     pub msglen: u32,
     pub send_uname: [u8; UNAME_LEN],
     pub recv_uname: [u8; UNAME_LEN],
     pub message: Vec<u8>,
 }
 
-impl Message {
+impl ChatMessage {
     pub fn empty() -> Self {
-        Message {
+        ChatMessage {
             msglen: 0,
             send_uname: [0; UNAME_LEN],
             recv_uname: [0; UNAME_LEN],
@@ -25,14 +18,14 @@ impl Message {
         }
     }
 
-    pub fn new(s_uname: &str, r_uname: &str, msg: &str) -> Self {
-        let mut message = Message::empty();
-        message.set_send_uname(s_uname);
-        message.set_recv_uname(r_uname);
-        message.set_message(msg);
-        message.msglen = msg.len() as u32;
+    pub fn new(new_send_uname: &str, new_recv_uname: &str, msg: &str) -> Self {
+        let mut chat_message = ChatMessage::empty();
+        ChatMessage::set_uname(&mut chat_message.send_uname, new_send_uname);
+        ChatMessage::set_uname(&mut chat_message.recv_uname, new_recv_uname);
+        chat_message.message.extend_from_slice(msg.as_bytes());
+        chat_message.msglen = msg.len() as u32;
 
-        message
+        chat_message
     }
 
     pub fn serialize(&self) -> Vec<u8> {
@@ -66,20 +59,12 @@ impl Message {
 
         let message = variable_size[..msglen as usize].to_vec();
 
-        Some(Message {
+        Some(ChatMessage {
             msglen,
             send_uname,
             recv_uname,
             message,
         })
-    }
-
-    pub fn set_send_uname(&mut self, new_send_uname: &str) {
-        Message::set_uname(&mut self.send_uname, new_send_uname)
-    }
-
-    pub fn set_recv_uname(&mut self, new_recv_uname: &str) {
-        Message::set_uname(&mut self.recv_uname, new_recv_uname)
     }
 
     fn set_uname(target: &mut [u8], new_send_uname: &str) {
@@ -90,21 +75,17 @@ impl Message {
         }
     }
 
-    pub fn set_message(&mut self, message: &str) {
-        self.message.extend_from_slice(message.as_bytes());
-    }
-
     fn fixed_size() -> usize {
         return MSGLEN_LEN + (2 * UNAME_LEN);
     }
 }
 
 // produce pretty debug output on print by implementing fmt::Debug trait
-impl fmt::Debug for Message {
+impl fmt::Debug for ChatMessage {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "Message {{ msglen: {}, send_uname: \"{}\", recv_uname: \"{}\", message: \"{}\" }}",
+            "ChatMessage {{ msglen: {}, send_uname: \"{}\", recv_uname: \"{}\", message: \"{}\" }}",
             self.msglen,
             String::from_utf8_lossy(&self.send_uname).to_string(),
             String::from_utf8_lossy(&self.recv_uname).to_string(),
