@@ -17,7 +17,7 @@ impl C2sSignup {
 
     pub fn new(new_uname: &str) -> Self {
         let mut signup = C2sSignup::empty();
-        crate::set_uname(&mut signup.cli_uname, new_uname);
+        crate::shared::set_uname(&mut signup.cli_uname, new_uname);
 
         signup
     }
@@ -46,7 +46,7 @@ impl C2sSignup {
 /**
 Protocol message: server responding to successful signup attempt with unique token
 */
-struct S2cSignup {
+pub struct S2cSignup {
     token: [u8; TOKEN_LEN]
 }
 

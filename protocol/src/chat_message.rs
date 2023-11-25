@@ -23,8 +23,8 @@ impl ChatMessage {
 
     pub fn new(new_send_uname: &str, new_recv_uname: &str, msg: &str) -> Self {
         let mut chat_message = ChatMessage::empty();
-        crate::set_uname(&mut chat_message.send_uname, new_send_uname);
-        crate::set_uname(&mut chat_message.recv_uname, new_recv_uname);
+        crate::shared::set_uname(&mut chat_message.send_uname, new_send_uname);
+        crate::shared::set_uname(&mut chat_message.recv_uname, new_recv_uname);
         chat_message.message.extend_from_slice(msg.as_bytes());
         chat_message.msglen = msg.len() as u32;
 

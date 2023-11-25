@@ -22,7 +22,7 @@ impl C2sVerify {
 
     pub fn new(c_uname: &str, token: &[u8]) -> Self {
         let mut verify = C2sVerify::empty();
-        crate::set_uname(&mut verify.cli_uname, c_uname);
+        crate::shared::set_uname(&mut verify.cli_uname, c_uname);
         if token.len() != TOKEN_LEN {
             println!("Tokens must be 32 bytes");
             return verify;
