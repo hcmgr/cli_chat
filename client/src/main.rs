@@ -2,15 +2,6 @@ use std::io::{self, Read, Write};
 use std::net::TcpStream;
 use protocol::chat_message::ChatMessage;
 
-/**
-Represents the main wrapper for all protocol messages. 
-*/
-pub struct Packet {
-    pub method: u8,
-    pub length: u32,
-    pub buffer: Vec<u8>,
-}
-
 fn handle_client(ser_message: Vec<u8>, mut stream: TcpStream) -> io::Result<()> {
     stream.write_all(&ser_message)?;
     let mut buffer = [0u8; 1024];

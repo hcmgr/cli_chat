@@ -1,6 +1,9 @@
 use std::fmt;
 use crate::field_lens::{ UNAME_LEN, MSGLEN_LEN, TOKEN_LEN, METHOD_LEN, ERR_CODE_LEN };
 
+/**
+Protocol message: chat message between clients (main 'unit' of the protocol)
+*/
 pub struct ChatMessage {
     pub msglen: u32,
     pub send_uname: [u8; UNAME_LEN],
@@ -20,8 +23,8 @@ impl ChatMessage {
 
     pub fn new(new_send_uname: &str, new_recv_uname: &str, msg: &str) -> Self {
         let mut chat_message = ChatMessage::empty();
-        ChatMessage::set_uname(&mut chat_message.send_uname, new_send_uname);
-        ChatMessage::set_uname(&mut chat_message.recv_uname, new_recv_uname);
+        crate::set_uname(&mut chat_message.send_uname, new_send_uname);
+        crate::set_uname(&mut chat_message.recv_uname, new_recv_uname);
         chat_message.message.extend_from_slice(msg.as_bytes());
         chat_message.msglen = msg.len() as u32;
 
@@ -65,14 +68,6 @@ impl ChatMessage {
             recv_uname,
             message,
         })
-    }
-
-    fn set_uname(target: &mut [u8], new_send_uname: &str) {
-        if new_send_uname.len() <= UNAME_LEN {
-            target[..new_send_uname.len()].copy_from_slice(new_send_uname.as_bytes());
-        } else {
-            println!("Username can be a maximum of {} characters", UNAME_LEN);
-        }
     }
 
     fn fixed_size() -> usize {
