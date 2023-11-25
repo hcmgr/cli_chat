@@ -10,12 +10,12 @@ Wrapper-message for all other protocol messages:
 */
 pub struct Packet {
     pub method: u8,
-    pub length: [u8; MSGLEN_LEN],
+    pub length: u32,
     pub message_buffer: Vec<u8>,
 }
 
 impl Packet {
-    pub fn new(meth: u8, len: u8, msg_buf: Vec<u8>) -> Self {
+    pub fn new(meth: u8, len: u32, msg_buf: Vec<u8>) -> Self {
         Packet {
             method: meth,
             length: len,
@@ -25,11 +25,11 @@ impl Packet {
 
     pub fn serialize(&self) -> Vec<u8> {
         let mut buffer = Vec::new();
-        buffer.push(&self.method);
-        buffer.extend_from_slice(&self.length);
+        buffer.push(self.method);
+        buffer.extend_from_slice(&self.length.to_be_bytes());
         buffer.extend_from_slice(&self.message_buffer);
         
-        buffer;
+        buffer
     }
 
     pub fn deserialize(bytes: &[u8]) -> Option<Self> {
@@ -37,15 +37,15 @@ impl Packet {
         let mut length = 0;
         let mut length_buffer = [0u8; MSGLEN_LEN];
         
-        method = &bytes[..METHOD_LEN];
+        method = bytes[0];
         length_buffer.copy_from_slice(&bytes[METHOD_LEN .. MSGLEN_LEN]);
         length = u32::from_be_bytes(length_buffer);
 
-        if bytes.len() - Packet::fixed_size() != length {
+        if bytes.len() - Packet::fixed_size() != length as usize {
             return None;
         }
 
-        let message_buffer = &bytes[Packet::fixed_size()..].to_vec();
+        let message_buffer = bytes[Packet::fixed_size()..].to_vec();
 
         Some(Packet {
             method,
@@ -55,6 +55,6 @@ impl Packet {
     }
 
     fn fixed_size() -> usize {
-        METHOD_LEN + MSGLEN_LEN;
+        METHOD_LEN + MSGLEN_LEN
     }
 }

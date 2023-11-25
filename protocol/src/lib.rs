@@ -1,3 +1,4 @@
+pub mod packet;
 pub mod chat_message;
 pub mod verify;
 pub mod signup;
@@ -24,7 +25,6 @@ mod field_lens {
     pub const METHOD_LEN: usize = 1;
     pub const ERR_CODE_LEN: usize = 4;
 }
-
 
 // shared code of protocol messages
 mod shared {
