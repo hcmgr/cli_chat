@@ -3,11 +3,10 @@ use std::net::TcpStream;
 use std::error::Error;
 
 use protocol::{Packet, ChatMessage, C2sSignup, S2cSignup, C2sVerify, C2cConnReq, C2cConnResp};
-use protocol::{self, field_lens, message_type, errors, };
+use protocol::{self, field_lens, message_type, errors};
 use message_type::{MessageType, method_num_to_message_type};
 
 mod storage;
-use storage::create_cli_chat_dir;
 
 fn read_packet(mut stream: TcpStream) -> Result<Packet, Box<dyn Error>> {
     let mut packet_buffer = [0u8; field_lens::MAX_PACKET_LEN];
@@ -63,15 +62,27 @@ fn test_c2sVerify(mut stream: TcpStream) -> io::Result<()> {
     Ok(())
 }
 
-fn main() -> io::Result<()> {
-    // let mut stream = TcpStream::connect("127.0.0.1:8080")?;
-    // test_chat_message(stream);
-    // test_c2sVerify(stream);
+fn test_storage() -> io::Result<()> {
     let verify = C2sVerify::new("hcmgr", S2cSignup::generate_token());
-    if !storage::dir_exists().unwrap() {
+    if !storage::dir_exists() {
         let cli_path = storage::create_cli_chat_dir(verify.cli_uname, verify.token).unwrap();
         println!("{:?}", cli_path);
     }
-    
+
+    Ok(())
+}
+
+fn main() -> io::Result<()> {
+    // let mut stream = TcpStream::connect("127.0.0.1:8080")?;
+    let mut verify = C2sVerify::new("hcmgr", S2cSignup::generate_token());
+    if !storage::dir_exists() {
+        storage::create_cli_chat_dir(verify.cli_uname, verify.token);
+        println!("{}", protocol::shared::token_to_string(verify.token));
+    }
+    let username = storage::read_username()?;
+    let token = storage::read_token()?;
+    println!("{}", protocol::shared::uname_to_string(username));
+    println!("{}", protocol::shared::token_to_string(token));
+
     Ok(())
 }
