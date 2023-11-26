@@ -11,8 +11,8 @@ NOTE: server-to-client (S2c):
     denial: empty packet with unqique 'verify-deny' method header
 */
 pub struct C2sVerify {
-    cli_uname: [u8; UNAME_LEN],
-    token: [u8; TOKEN_LEN],
+    pub cli_uname: [u8; UNAME_LEN],
+    pub token: [u8; TOKEN_LEN],
 }
 
 impl C2sVerify {
