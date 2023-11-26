@@ -1,5 +1,8 @@
 use crate::field_lens::{ UNAME_LEN, TOKEN_LEN };
 use rand::Rng;
+use std::fmt;
+use crate::errors::LengthError;
+use std::error::Error;
 
 /**
 Protocol message: client attempting to sign up with a given username
@@ -29,17 +32,31 @@ impl C2sSignup {
         buffer
     }
 
-    pub fn deserialize(bytes: &[u8]) -> Option<Self> {
+    pub fn deserialize(bytes: &[u8]) -> Result<Self, Box<dyn Error>> {
         if bytes.len() != UNAME_LEN {
-            return None;
+            return Err(Box::new(LengthError));
         }
 
         let mut cli_uname = [0u8; UNAME_LEN];
         cli_uname.copy_from_slice(&bytes[..UNAME_LEN]);
 
-        Some (C2sSignup {
+        Ok (C2sSignup {
             cli_uname
         })
+    }
+
+    pub fn length(&self) -> usize {
+        return UNAME_LEN;
+    }
+}
+
+impl fmt::Debug for C2sSignup {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "C2sSignup {{ cli_uname: \"{}\" }}",
+            String::from_utf8_lossy(&self.cli_uname).to_string()
+        )
     }
 }
 
@@ -64,27 +81,39 @@ impl S2cSignup {
         buffer
     }
 
-    pub fn deserialize(bytes: &[u8]) -> Option<Self> {
-        if bytes.len() < TOKEN_LEN {
-            return None;
+    pub fn deserialize(bytes: &[u8]) -> Result<Self, Box<dyn Error>> {
+        if bytes.len() != TOKEN_LEN {
+            return Err(Box::new(LengthError));
         }
 
         let mut token = [0u8; TOKEN_LEN];
         token.copy_from_slice(&bytes[..TOKEN_LEN]);
 
-        Some (S2cSignup {
+        Ok (S2cSignup {
             token
         })
     }
 
-    fn generate_token() -> [u8; 32] {
+    pub fn generate_token() -> [u8; 32] {
         let mut rng = rand::thread_rng();
         let token: [u8; 32] = rng.gen();
 
         token
     }
+
+    pub fn length(&self) -> usize {
+        return TOKEN_LEN;
+    }
 }
 
-
+impl fmt::Debug for S2cSignup {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "S2cSignup {{ token: \"{}\" }}",
+            String::from_utf8_lossy(&self.token).to_string()
+        )
+    }
+}
 
 

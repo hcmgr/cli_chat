@@ -1,4 +1,7 @@
 use crate::field_lens::{ UNAME_LEN, TOKEN_LEN};
+use std::fmt;
+use crate::errors::LengthError;
+use std::error::Error;
 
 /**
 Protocol message: client verifying itself upon connecting with server
@@ -20,7 +23,7 @@ impl C2sVerify {
         }
     }
 
-    pub fn new(c_uname: &str, token: &[u8]) -> Self {
+    pub fn new(c_uname: &str, token: [u8; TOKEN_LEN]) -> Self {
         let mut verify = C2sVerify::empty();
         crate::shared::set_uname(&mut verify.cli_uname, c_uname);
         if token.len() != TOKEN_LEN {
@@ -40,9 +43,9 @@ impl C2sVerify {
         buffer
     }
 
-    pub fn deserialize(bytes: &[u8]) -> Option<Self> {
+    pub fn deserialize(bytes: &[u8]) -> Result<Self, Box<dyn Error>> {
         if bytes.len() != C2sVerify::fixed_size() {
-            return None;
+            return Err(Box::new(LengthError));
         }
 
         let mut cli_uname = [0u8; UNAME_LEN];
@@ -50,13 +53,28 @@ impl C2sVerify {
         cli_uname.copy_from_slice(&bytes[..UNAME_LEN]);
         token.copy_from_slice(&bytes[UNAME_LEN .. C2sVerify::fixed_size()]);
 
-        Some (C2sVerify {
+        Ok (C2sVerify {
             cli_uname,
             token
         })
     }
 
+    pub fn length(&self) -> usize {
+        C2sVerify::fixed_size()
+    }
+
     fn fixed_size() -> usize {
         UNAME_LEN + TOKEN_LEN
+    }
+}
+
+impl fmt::Debug for C2sVerify {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "C2sVerify {{ cli_uname: \"{}\", token: \"{}\" }}",
+            String::from_utf8_lossy(&self.cli_uname).to_string(),
+            String::from_utf8_lossy(&self.token).to_string()
+        )
     }
 }

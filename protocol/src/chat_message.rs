@@ -1,23 +1,25 @@
 use std::fmt;
+use std::error::Error;
 use crate::field_lens::{ UNAME_LEN, MSGLEN_LEN, TOKEN_LEN, METHOD_LEN, ERR_CODE_LEN };
+use crate::errors::LengthError;
 
 /**
 Protocol message: chat message between clients (main 'unit' of the protocol)
 */
 pub struct ChatMessage {
-    pub msglen: u32,
+    pub msg_length: u32,
     pub send_uname: [u8; UNAME_LEN],
     pub recv_uname: [u8; UNAME_LEN],
-    pub message: Vec<u8>,
+    pub msg_buffer: Vec<u8>,
 }
 
 impl ChatMessage {
     pub fn empty() -> Self {
         ChatMessage {
-            msglen: 0,
+            msg_length: 0,
             send_uname: [0; UNAME_LEN],
             recv_uname: [0; UNAME_LEN],
-            message: Vec::new(),
+            msg_buffer: Vec::new(),
         }
     }
 
@@ -25,8 +27,8 @@ impl ChatMessage {
         let mut chat_message = ChatMessage::empty();
         crate::shared::set_uname(&mut chat_message.send_uname, new_send_uname);
         crate::shared::set_uname(&mut chat_message.recv_uname, new_recv_uname);
-        chat_message.message.extend_from_slice(msg.as_bytes());
-        chat_message.msglen = msg.len() as u32;
+        chat_message.msg_buffer.extend_from_slice(msg.as_bytes());
+        chat_message.msg_length = msg.len() as u32;
 
         chat_message
     }
@@ -34,44 +36,44 @@ impl ChatMessage {
     pub fn serialize(&self) -> Vec<u8> {
         let mut buffer = Vec::new();
 
-        buffer.extend_from_slice(&self.msglen.to_be_bytes());
+        buffer.extend_from_slice(&self.msg_length.to_be_bytes());
         buffer.extend_from_slice(&self.send_uname);
         buffer.extend_from_slice(&self.recv_uname);
-        buffer.extend_from_slice(&self.message);
+        buffer.extend_from_slice(&self.msg_buffer);
 
         buffer
     }
 
-    pub fn deserialize(bytes: &[u8]) -> Option<Self> {
+    pub fn deserialize(bytes: &[u8]) -> Result<ChatMessage, Box<dyn Error>> {
         if bytes.len() < Self::fixed_size() {
-            return None;
+            return Err(Box::new(LengthError));
         }
 
         let (fixed_size, variable_size) = bytes.split_at(Self::fixed_size());
 
         let mut send_uname = [0u8; UNAME_LEN];
         let mut recv_uname = [0u8; UNAME_LEN];
-        let msglen = u32::from_be_bytes(fixed_size[..MSGLEN_LEN].try_into().ok()?);
+        let msg_length = u32::from_be_bytes(fixed_size[..MSGLEN_LEN].try_into().unwrap());
         
         send_uname.copy_from_slice(&fixed_size[MSGLEN_LEN..(MSGLEN_LEN + UNAME_LEN)]);
         recv_uname.copy_from_slice(&fixed_size[(MSGLEN_LEN + UNAME_LEN)..]);
 
-        if variable_size.len() < msglen as usize {
-            return None;
+        if variable_size.len() < msg_length as usize {
+            return Err(Box::new(LengthError));
         }
 
-        let message = variable_size[..msglen as usize].to_vec();
+        let message = variable_size[..msg_length as usize].to_vec();
 
-        Some(ChatMessage {
-            msglen,
-            send_uname,
-            recv_uname,
-            message,
+        Ok(ChatMessage {
+            msg_length: msg_length,
+            send_uname: send_uname,
+            recv_uname: recv_uname,
+            msg_buffer: message
         })
     }
 
-    pub fn length(&self) -> u32 {
-        (ChatMessage::fixed_size() as u32) + self.msglen
+    pub fn length(&self) -> usize {
+        ChatMessage::fixed_size() + self.msg_length as usize
     }
 
     fn fixed_size() -> usize {
@@ -85,10 +87,10 @@ impl fmt::Debug for ChatMessage {
         write!(
             f,
             "ChatMessage {{ msglen: {}, send_uname: \"{}\", recv_uname: \"{}\", message: \"{}\" }}",
-            self.msglen,
+            self.msg_length,
             String::from_utf8_lossy(&self.send_uname).to_string(),
             String::from_utf8_lossy(&self.recv_uname).to_string(),
-            String::from_utf8_lossy(&self.message).to_string()
+            String::from_utf8_lossy(&self.msg_buffer).to_string()
         )
     }
 }

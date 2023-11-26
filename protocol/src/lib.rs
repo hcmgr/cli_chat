@@ -14,20 +14,54 @@ pub enum MessageType {
     C2sSignup = 2,
     S2cSignup = 3,
     C2cConnReq = 4,
-    C2cConnResp = 5
+    C2cConnResp = 5,
+    Invalid
+}
+
+pub fn method_num_to_message_type(index: u8) -> MessageType {
+    let mt = match index {
+        0 => MessageType::ChatMessage,
+        1 => MessageType::C2sVerify,
+        2 => MessageType::C2sSignup,
+        3 => MessageType::S2cSignup, 
+        4 => MessageType::C2cConnReq,
+        5 => MessageType::C2cConnResp,
+        _ => MessageType::Invalid
+    };
+    mt
 }
 
 // protocol message field lengths
-mod field_lens {
+pub mod field_lens {
     pub const UNAME_LEN: usize = 50;
     pub const MSGLEN_LEN: usize = 4;
     pub const TOKEN_LEN: usize = 32;
     pub const METHOD_LEN: usize = 1;
     pub const ERR_CODE_LEN: usize = 4;
+    pub const MAX_PACKET_LEN: usize = 1024;
 }
 
-// shared code of protocol messages
+
+// defines all errors used by protocol
+pub mod errors {
+    use std::fmt;
+    use std::error::Error;
+
+    #[derive(Debug)]
+    pub struct LengthError; 
+
+    impl fmt::Display for LengthError {
+        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            write!(f, "incorrect message/packet length specified")
+        }
+    }
+
+    impl Error for LengthError {}
+}
+
+// miscellaneous helper functions used by all protocol code
 mod shared {
+    // sets username field of an arbitrary protocol message 
     pub fn set_uname(target: &mut [u8], new_send_uname: &str) {
         if new_send_uname.len() <= crate::field_lens::UNAME_LEN {
             target[..new_send_uname.len()].copy_from_slice(new_send_uname.as_bytes());
