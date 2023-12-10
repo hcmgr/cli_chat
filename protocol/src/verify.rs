@@ -72,9 +72,9 @@ impl fmt::Debug for C2sVerify {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "C2sVerify {{ cli_uname: \"{}\", token: \"{}\" }}",
-            String::from_utf8_lossy(&self.cli_uname).to_string(),
-            String::from_utf8_lossy(&self.token).to_string()
+            "C2sVerify {{ cli_uname: {}, token: {} }}",
+            crate::shared::uname_to_string(self.cli_uname),
+            crate::shared::token_to_string(self.token)
         )
     }
 }

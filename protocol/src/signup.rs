@@ -1,5 +1,5 @@
 use crate::field_lens::{ UNAME_LEN, TOKEN_LEN };
-use rand::Rng;
+
 use std::fmt;
 use crate::errors::LengthError;
 use std::error::Error;
@@ -70,7 +70,8 @@ pub struct S2cSignup {
 impl S2cSignup {
     pub fn new() -> Self {
         S2cSignup {
-            token: S2cSignup::generate_token(),
+            // token: S2cSignup::generate_token(),
+            token: crate::shared::generate_token(),
         }
     }
 
@@ -92,13 +93,6 @@ impl S2cSignup {
         Ok (S2cSignup {
             token
         })
-    }
-
-    pub fn generate_token() -> [u8; 32] {
-        let mut rng = rand::thread_rng();
-        let token: [u8; 32] = rng.gen();
-
-        token
     }
 
     pub fn length(&self) -> usize {
