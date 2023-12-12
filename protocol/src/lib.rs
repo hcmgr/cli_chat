@@ -69,6 +69,7 @@ pub mod errors {
 // miscellaneous helper functions used by all protocol code
 pub mod shared {
     use rand::Rng;
+
     // sets username field of an arbitrary protocol message 
     pub fn set_uname(target: &mut [u8], new_send_uname: &str) {
         if new_send_uname.len() <= crate::field_lens::UNAME_LEN {

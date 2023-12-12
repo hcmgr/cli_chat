@@ -8,3 +8,5 @@ edition = "2021"
 [dependencies]
 protocol = { path = "../protocol" }
 home = "0.5.4"
+sha256 = "1.4.0"
+lazy_static = "1.4"

@@ -17,13 +17,13 @@ The directory structure looks like:
             ...
 
 connection-list:
-    - stores all user connections
-    - the format is as follows:
-        conn_uname_1 (50 bytes)
-        conn_uname_2 (50 bytes)
+    - stores usernames for each valid connection
+    - from this, construct HashMap<String, X>
+        where X is an id used to uniquely identify connection file (conn_X)
+    - format:
+        {conn_uname_1} (50 bytes)
+        {conn_uname_2} (50 bytes)
         ...
-
-    - NOTE: make hashmap of this list for quick access
 
 connX:
     - stores all messages and metadata for a given connection (X)
@@ -46,14 +46,15 @@ use home::home_dir;
 use std::path::PathBuf;
 use std::io::{self, Read, Write, BufRead, Error};
 use std::collections::HashMap;
-use protocol::field_lens;
+use protocol::{self, field_lens};
+use super::conn_map;
 
 pub const ROOT_DIR_NAME: &str = ".cli_chat";
 pub const TOKEN_FN: &str = "token";
 pub const UNAME_FN: &str = "username";
 pub const CONN_LIST_FN: &str = "connections-list";
-pub const CONN_FILE_PREFIX: &str = "conn";
 pub const CONN_DIR_NAME: &str = "connections";
+pub const CONN_FILE_PREFIX: &str = "conn";
 
 /**
 Returns path of cli_chat root directory
@@ -178,20 +179,15 @@ pub fn read_token() -> io::Result<[u8; field_lens::TOKEN_LEN]> {
 }
 
 /*
-From the connections-list file, build up a HashMap<String, usize>
-that maps connection usernames to a unique index
+Initialises the connections map from the 'connections-list' file
 */
-pub fn get_connections_map() -> io::Result<HashMap<String, usize>> {
+pub fn init_conn_map() {
     let mut conn_list_file = open_cli_chat_file(CONN_LIST_FN).unwrap();
-    let mut uname_map = HashMap::new();
     let reader = io::BufReader::new(conn_list_file);
-    
     for (i, line) in reader.lines().enumerate() {
-        let uname = line?;
-        uname_map.insert(uname, i);
+        let uname = line.unwrap();
+        conn_map::insert(uname, i)
     }
-
-    Ok(uname_map)
 }
 
 /*
@@ -203,8 +199,9 @@ Adds a new connection
 NOTE: - here, we assume adding this connection is valid
 */
 pub fn add_new_connection(uname: String, 
-    conn_map: &mut HashMap<String, usize>,
     conn_list_file: &mut File) -> Result<(), io::Error> {
+    
+    let conn_map = conn_map::get_map();
 
     // add to 'connections-list'
     writeln!(conn_list_file, "{}", &uname);
@@ -212,42 +209,57 @@ pub fn add_new_connection(uname: String,
     // create connections/connX file
     let base_path = get_root_dir().unwrap();
     let conn_id = conn_map.len();
-    let new_conn_file_name = format!("{}{}", CONN_FILE_PREFIX, conn_id);
+    let new_conn_file_name = format!("{}_{}", CONN_FILE_PREFIX, conn_id);
     create_cli_chat_file(base_path.join("connections"), &new_conn_file_name);
 
     // add entry to connections map
-    conn_map.insert(uname, conn_id);
+    conn_map::insert(uname, conn_id);
     println!("{:?}", conn_map);
 
     Ok(())
 }
 
+// pub fn get_conn_file_name(send_uname: String)
+
+// pub fn get_conn_file_path(send_uname: String) {
+//     let file_name = 
+//     let dir_path = get_root_dir().unwrap().join(CONN_DIR_NAME);
+
+// }
+
+// pub fn write_new_message(msg: protocol::ChatMessage) {
+//     let file_path = 
+//     let mut file = OpenOptions::new()
+//         .append(true)
+//         .open(file_path).unwrap();
+    
+// }
+
 // TEST //
 
 pub fn test_add_conn() {
     let mut conn_list_file = open_cli_chat_file(CONN_LIST_FN).unwrap();
-    let mut conn_map = get_connections_map().unwrap();
     let mut unames: Vec<String> = Vec::new();
     unames.push(String::from("Kerry"));
     unames.push(String::from("Eddie"));
     unames.push(String::from("Harry"));
     for uname in unames {
-        add_new_connection(uname, &mut conn_map, &mut conn_list_file);
+        add_new_connection(uname, &mut conn_list_file);
     }
 }
 
-pub fn test_get_conn_map() {
-    let mut uname_list: Vec<String> = Vec::new();
-    uname_list.push(String::from("harry"));
-    uname_list.push(String::from("kerry"));
-    uname_list.push(String::from("eddie"));
+pub fn test_singelton_map() {
+    // Insert key-value pair into the singleton HashMap.
+    conn_map::insert("key1".to_string(), 1);
+    conn_map::insert("key2".to_string(), 2);
 
-    let conn_map = get_connections_map().unwrap();
-    for uname in uname_list {
-        println!("{:?} -> {:?}", uname, conn_map.get(&uname).unwrap());
-    }
+    // Access the singleton HashMap.
+    let my_map = conn_map::get_map();
+    println!("{:?}", my_map);
+
+    // Remove a key from the singleton HashMap.
+    conn_map::remove("key1");
 }
-
 
 
 
