@@ -1,9 +1,15 @@
+/*
+Defines a singelton hashmap to store a mapping from 
+connection username to a unique identifier
+*/
+
+
 use lazy_static::lazy_static;
 use std::sync::Mutex;
 use std::collections::HashMap;
 
 pub struct ConnMap {
-    pub conn_map: HashMap<String, usize>,
+    pub conn_map: HashMap<String, String>,
 }
 
 lazy_static! {
@@ -12,11 +18,11 @@ lazy_static! {
     });
 }
 
-pub fn get_map() -> HashMap<String, usize> {
+pub fn get_map() -> HashMap<String, String> {
     MODULE_DATA.lock().unwrap().conn_map.clone()
 }
 
-pub fn insert(key: String, value: usize) {
+pub fn insert(key: String, value: String) {
     MODULE_DATA.lock().unwrap().conn_map.insert(key, value);
 }
 

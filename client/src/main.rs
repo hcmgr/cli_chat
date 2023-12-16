@@ -20,6 +20,7 @@ fn main() -> io::Result<()> {
     // let username = storage::read_username().unwrap();
     // let digest = helpers::sha256_from_bytes(username.to_vec());
     // println!("{}", digest);
-    storage::storage_methods::test_singelton_map();
+    // storage::storage_methods::test_singelton_map();
+    storage::storage_methods::test_write_read_message();
     Ok(())
 }

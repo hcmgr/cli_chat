@@ -28,17 +28,14 @@ connection-list:
 connX:
     - stores all messages and metadata for a given connection (X)
     - the format is as follows:
-        {Header}:
-            conn_uname (50 bytes)
-            \n
-        {Body}:
-            {Message 1}
-            msg_length (4 bytes)
-            send_uname (50 bytes)
-            msg_buffer (variable)
-            \n
-            {Message 2}
-            ...
+        {Message 1}
+        Magic bytes (4 bytes)
+        msg_length (4 bytes)
+        send_uname (50 bytes)
+        msg_buffer (variable)
+        \n
+        {Message 2}
+        ...
 */
 
 use std::fs::{self, File, OpenOptions};
@@ -46,7 +43,7 @@ use home::home_dir;
 use std::path::PathBuf;
 use std::io::{self, Read, Write, BufRead, Error};
 use std::collections::HashMap;
-use protocol::{self, field_lens};
+use protocol::{self, field_lens, ChatMessage};
 use super::conn_map;
 
 pub const ROOT_DIR_NAME: &str = ".cli_chat";
@@ -55,6 +52,10 @@ pub const UNAME_FN: &str = "username";
 pub const CONN_LIST_FN: &str = "connections-list";
 pub const CONN_DIR_NAME: &str = "connections";
 pub const CONN_FILE_PREFIX: &str = "conn";
+
+pub const NUM_MAGIC_BYTES: usize = 4;
+// pub const MAGIC_BYTES: [u8; NUM_MAGIC_BYTES] = [114, 97, 99, 107];
+pub const MAGIC_BYTES: [u8; NUM_MAGIC_BYTES] = [10, 45, 45, 10];
 
 /**
 Returns path of cli_chat root directory
@@ -128,12 +129,18 @@ pub fn create_cli_chat_dir(uname: [u8; field_lens::UNAME_LEN],
 
 fn create_cli_chat_file(base_path: PathBuf, name: &str) -> Option<File> {
     let path = base_path.join(name);
-    match fs::File::create(&path) {
+
+    match OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create(true)
+        .open(&path)
+    {
         Err(err) => {
-            eprintln!("Error creating {} file: {}", name, err);
-            return None;
-        }, 
-        Ok(file) => Some(file)
+            eprintln!("Error opening {} file: {}", name, err);
+            None
+        }
+        Ok(file) => Some(file),
     }
 }
 
@@ -156,7 +163,7 @@ fn open_cli_chat_file(name: &str) -> Option<File> {
     }
 }
 
-/*
+/**
 Reads username from .cli_chat/username
 */
 pub fn read_username() -> io::Result<[u8; field_lens::UNAME_LEN]> {
@@ -167,7 +174,7 @@ pub fn read_username() -> io::Result<[u8; field_lens::UNAME_LEN]> {
     Ok(uname_buffer)
 }
 
-/*
+/**
 Reads token from .cli_chat/token
 */
 pub fn read_token() -> io::Result<[u8; field_lens::TOKEN_LEN]> {
@@ -178,7 +185,7 @@ pub fn read_token() -> io::Result<[u8; field_lens::TOKEN_LEN]> {
     Ok(token_buffer)
 }
 
-/*
+/**
 Initialises the connections map from the 'connections-list' file
 */
 pub fn init_conn_map() {
@@ -186,11 +193,11 @@ pub fn init_conn_map() {
     let reader = io::BufReader::new(conn_list_file);
     for (i, line) in reader.lines().enumerate() {
         let uname = line.unwrap();
-        conn_map::insert(uname, i)
+        conn_map::insert(uname.clone(), uname.clone());
     }
 }
 
-/*
+/**
 Adds a new connection
     - appending the corresponding username to 'connections-list' AND;
     - creating a new connections/connX file AND;
@@ -198,60 +205,150 @@ Adds a new connection
 
 NOTE: - here, we assume adding this connection is valid
 */
-pub fn add_new_connection(uname: String, 
-    conn_list_file: &mut File) -> Result<(), io::Error> {
+pub fn add_new_connection(uname: String) -> Result<(), io::Error> {
     
-    let conn_map = conn_map::get_map();
-
     // add to 'connections-list'
+    let mut conn_list_file = open_cli_chat_file(CONN_LIST_FN).unwrap();
     writeln!(conn_list_file, "{}", &uname);
 
     // create connections/connX file
     let base_path = get_root_dir().unwrap();
-    let conn_id = conn_map.len();
-    let new_conn_file_name = format!("{}_{}", CONN_FILE_PREFIX, conn_id);
-    create_cli_chat_file(base_path.join("connections"), &new_conn_file_name);
+    create_cli_chat_file(base_path.join(CONN_DIR_NAME), 
+        &get_conn_file_name(uname.clone()));
 
     // add entry to connections map
-    conn_map::insert(uname, conn_id);
-    println!("{:?}", conn_map);
+    conn_map::insert(uname.clone(), uname.clone());
 
     Ok(())
 }
 
-// pub fn get_conn_file_name(send_uname: String)
+fn get_conn_file_name(uname: String) -> String {
+    return format!("{}_{}", CONN_FILE_PREFIX, uname);
+}
 
-// pub fn get_conn_file_path(send_uname: String) {
-//     let file_name = 
-//     let dir_path = get_root_dir().unwrap().join(CONN_DIR_NAME);
+fn get_conn_file_path(uname: String) -> PathBuf {
+    let base_path = get_root_dir().unwrap();
+    let file_name = get_conn_file_name(uname);
+    return base_path.join(CONN_DIR_NAME).join(file_name);
+}
 
-// }
+/**
+Writes given message to corresponding connX file
+*/
+pub fn write_message(chat_message: ChatMessage, conn_uname: String) -> Option<usize> {
+    let file_path = get_conn_file_path(conn_uname);
+    let mut file = OpenOptions::new()
+        .append(true)
+        .open(file_path).unwrap();
 
-// pub fn write_new_message(msg: protocol::ChatMessage) {
-//     let file_path = 
-//     let mut file = OpenOptions::new()
-//         .append(true)
-//         .open(file_path).unwrap();
-    
-// }
+    // write magic bytes
+    let mut bytes_written = file.write(&MAGIC_BYTES).unwrap();
+    if bytes_written != NUM_MAGIC_BYTES {
+        println!("Error writting message: magic bytes");
+        return None;
+    }
+
+    // write message
+    let ser_chat_message = chat_message.serialize();
+    bytes_written += file.write(&ser_chat_message).unwrap();
+    if bytes_written != chat_message.length() + NUM_MAGIC_BYTES {
+        println!("Error writting message: message");
+        return None;
+    }
+    return Some(bytes_written);
+}
+
+/**
+Reads all messages from connX file into list
+*/
+pub fn read_messages(uname: String) -> Option<Vec<ChatMessage>> {
+    let file_path = get_conn_file_path(uname);
+    let file = OpenOptions::new()
+        .read(true)
+        .open(file_path).unwrap();
+    let mut file_reader = io::BufReader::new(file);
+    let mut messages: Vec<ChatMessage> = Vec::new();
+
+    while true {
+        // read magic bytes
+        let mut magic_bytes_buffer = [0u8; NUM_MAGIC_BYTES];
+        match file_reader.read_exact(&mut magic_bytes_buffer) {
+            Ok(_) => {}
+            Err(ref e) if e.kind() == io::ErrorKind::UnexpectedEof => {break;} // eof
+            Err(e) => {return None;}
+        }
+        if !magic_bytes_buffer.iter().eq(MAGIC_BYTES.iter()) {
+            println!("Error reading message: magic bytes");
+            return None;
+        }
+
+        // read length field
+        let mut length_buffer = [0u8; field_lens::MSGLEN_LEN];
+        match file_reader.read_exact(&mut length_buffer) {
+            Ok(_) => {}
+            Err(ref e) if e.kind() == io::ErrorKind::UnexpectedEof => {break;} // eof
+            Err(e) => {return None;}
+        }
+        let msg_length: u32 = u32::from_be_bytes(length_buffer);
+        if (msg_length as usize) == 0 {
+            println!("Error reading message: length");
+            return None;
+        }
+
+        // read message
+        let chat_message_length = ChatMessage::fixed_size() + (msg_length as usize);
+        let mut message_buffer = Vec::new();
+        message_buffer.extend_from_slice(&length_buffer);
+        message_buffer.resize(chat_message_length, 0);
+        match file_reader.read_exact(&mut message_buffer[field_lens::MSGLEN_LEN..]) {
+            Ok(_) => {}
+            Err(ref e) if e.kind() == io::ErrorKind::UnexpectedEof => {break;} // eof
+            Err(e) => {return None;}
+        }
+        let chat_message = ChatMessage::deserialize(&message_buffer).unwrap();
+        messages.push(chat_message);
+    }
+    return Some(messages);
+}
 
 // TEST //
 
+pub fn test_write_read_message() {
+    let harryUname = String::from("Harry");
+    let eddieUname = String::from("Eddie");
+    let msg1 = String::from("im not grumba grandpa guy dude");
+    let msg2 = String::from("yes I am so that guy gramps");
+
+    add_new_connection(eddieUname.clone());
+    let chat_message1 = ChatMessage::new(&eddieUname, &harryUname, &msg1);
+    let chat_message2 = ChatMessage::new(&harryUname, &eddieUname, &msg2);
+    
+    let mut bytes_written = write_message(chat_message1, eddieUname.clone()).unwrap();
+    println!("msg 1: wrote {} bytes", bytes_written);
+    bytes_written = write_message(chat_message2, eddieUname.clone()).unwrap();
+    println!("msg 2: wrote {} bytes", bytes_written);
+
+    let messages_read = read_messages(eddieUname.clone()).unwrap();
+    for msg in messages_read {
+        println!("Read message: {} bytes", msg.length());
+        println!("{:?}", msg);
+    }
+}
+
 pub fn test_add_conn() {
-    let mut conn_list_file = open_cli_chat_file(CONN_LIST_FN).unwrap();
     let mut unames: Vec<String> = Vec::new();
     unames.push(String::from("Kerry"));
     unames.push(String::from("Eddie"));
     unames.push(String::from("Harry"));
     for uname in unames {
-        add_new_connection(uname, &mut conn_list_file);
+        add_new_connection(uname);
     }
 }
 
 pub fn test_singelton_map() {
     // Insert key-value pair into the singleton HashMap.
-    conn_map::insert("key1".to_string(), 1);
-    conn_map::insert("key2".to_string(), 2);
+    conn_map::insert("key1".to_string(), "val1".to_string());
+    conn_map::insert("key2".to_string(), "val2".to_string());
 
     // Access the singleton HashMap.
     let my_map = conn_map::get_map();
@@ -260,6 +357,8 @@ pub fn test_singelton_map() {
     // Remove a key from the singleton HashMap.
     conn_map::remove("key1");
 }
+
+
 
 
 

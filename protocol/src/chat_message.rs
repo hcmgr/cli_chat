@@ -76,7 +76,7 @@ impl ChatMessage {
         ChatMessage::fixed_size() + self.msg_length as usize
     }
 
-    fn fixed_size() -> usize {
+    pub fn fixed_size() -> usize {
         MSGLEN_LEN + (2 * UNAME_LEN)
     }
 }

@@ -89,8 +89,23 @@ pub mod shared {
         token
     }
 
+    /**
+    Converts a username from its byte-rep to string-rep
+
+    NOTE: conversion to string form truncates null bytes
+    */
     pub fn uname_to_string(uname: [u8; crate::field_lens::UNAME_LEN]) -> String {
-        String::from_utf8_lossy(&uname).to_string()
+        // Find the position of the first null byte (0) in the buffer
+        let null_byte_position = uname.iter().position(|&byte| byte == 0);
+    
+        // Create a slice of the buffer up to the null byte position (if found)
+        let uname_slice = match null_byte_position {
+            Some(pos) => &uname[..pos],
+            None => &uname,
+        };
+    
+        // Convert the slice to a String
+        String::from_utf8_lossy(uname_slice).to_string()
     }
 
     pub fn token_to_string(token: [u8; crate::field_lens::TOKEN_LEN]) -> String {
