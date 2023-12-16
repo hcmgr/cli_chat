@@ -55,7 +55,7 @@ pub const CONN_FILE_PREFIX: &str = "conn";
 
 pub const NUM_MAGIC_BYTES: usize = 4;
 // pub const MAGIC_BYTES: [u8; NUM_MAGIC_BYTES] = [114, 97, 99, 107];
-pub const MAGIC_BYTES: [u8; NUM_MAGIC_BYTES] = [10, 45, 45, 10];
+pub const MAGIC_BYTES: [u8; NUM_MAGIC_BYTES] = [45, 45, 45, 45];
 
 /**
 Returns path of cli_chat root directory
@@ -150,6 +150,7 @@ fn open_cli_chat_file(name: &str) -> Option<File> {
     let mut cli_chat_file = OpenOptions::new()
         .read(true)
         .write(true)
+        .append(true)
         .create(true)
         .open(&path);
     
@@ -310,58 +311,3 @@ pub fn read_messages(uname: String) -> Option<Vec<ChatMessage>> {
     }
     return Some(messages);
 }
-
-// TEST //
-
-pub fn test_write_read_message() {
-    let harryUname = String::from("Harry");
-    let eddieUname = String::from("Eddie");
-    let msg1 = String::from("im not grumba grandpa guy dude");
-    let msg2 = String::from("yes I am so that guy gramps");
-
-    add_new_connection(eddieUname.clone());
-    let chat_message1 = ChatMessage::new(&eddieUname, &harryUname, &msg1);
-    let chat_message2 = ChatMessage::new(&harryUname, &eddieUname, &msg2);
-    
-    let mut bytes_written = write_message(chat_message1, eddieUname.clone()).unwrap();
-    println!("msg 1: wrote {} bytes", bytes_written);
-    bytes_written = write_message(chat_message2, eddieUname.clone()).unwrap();
-    println!("msg 2: wrote {} bytes", bytes_written);
-
-    let messages_read = read_messages(eddieUname.clone()).unwrap();
-    for msg in messages_read {
-        println!("Read message: {} bytes", msg.length());
-        println!("{:?}", msg);
-    }
-}
-
-pub fn test_add_conn() {
-    let mut unames: Vec<String> = Vec::new();
-    unames.push(String::from("Kerry"));
-    unames.push(String::from("Eddie"));
-    unames.push(String::from("Harry"));
-    for uname in unames {
-        add_new_connection(uname);
-    }
-}
-
-pub fn test_singelton_map() {
-    // Insert key-value pair into the singleton HashMap.
-    conn_map::insert("key1".to_string(), "val1".to_string());
-    conn_map::insert("key2".to_string(), "val2".to_string());
-
-    // Access the singleton HashMap.
-    let my_map = conn_map::get_map();
-    println!("{:?}", my_map);
-
-    // Remove a key from the singleton HashMap.
-    conn_map::remove("key1");
-}
-
-
-
-
-
-
-
-
