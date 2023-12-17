@@ -13,7 +13,6 @@ use std::error::Error;
 use protocol::{Packet, ChatMessage, C2sSignup, S2cSignup, C2sVerify, C2cConnReq, C2cConnResp};
 use protocol::{self, field_lens, message_type, errors, shared};
 use message_type::{MessageType, method_num_to_message_type};
-use crate::storage::{conn_map, storage};
 
 /**
 Reads a 'Packet' (see 'protocol' crate) from the server TCP scoket.
@@ -51,18 +50,22 @@ fn handle_verify_message(packet: Packet) -> Result<(), Box<dyn Error>> {
 
 // TESTS //
 
-pub fn test_verify_message(mut stream: TcpStream) -> Result<(), Box<dyn Error>> {
-    let username = storage::read_username()?;
-    let token = storage::read_token()?;
-    let mut verify = C2sVerify::new(&protocol::shared::uname_to_string(username), token);
-    let mut packet = Packet::new(
-        MessageType::C2sVerify as u8, 
-        verify.length() as u32, 
-        verify.serialize());
+pub mod tests {
+    use super::*;
+    use crate::storage::storage;
 
+    pub fn test_verify_message(mut stream: TcpStream) -> Result<(), Box<dyn Error>> {
+        let username = storage::read_username()?;
+        let token = storage::read_token()?;
+        let mut verify = C2sVerify::new(&protocol::shared::uname_to_string(username), token);
+        let mut packet = Packet::new(
+            MessageType::C2sVerify as u8, 
+            verify.length() as u32, 
+            verify.serialize());
 
-    stream.write_all(&packet.serialize());
-    handle_message(stream).unwrap();
+        stream.write_all(&packet.serialize());
+        handle_message(stream).unwrap();
 
-    Ok(())
+        Ok(())
+    }
 }
