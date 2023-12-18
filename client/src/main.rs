@@ -3,6 +3,7 @@ use std::net::TcpStream;
 
 use client::storage;
 use client::comms;
+use client::cli;
 
 fn main() -> io::Result<()> {
     if !storage::storage::dir_exists() {
@@ -12,8 +13,10 @@ fn main() -> io::Result<()> {
         storage::storage::create_cli_chat_dir(username_bytes, protocol::shared::generate_token());
     }
 
-    let mut stream = TcpStream::connect("127.0.0.1:8081")?;
-    comms::tests::test_verify_message(stream);
+    cli::app::App::run().unwrap();
+
+    // let mut stream = TcpStream::connect("127.0.0.1:8081")?;
+    // comms::tests::test_verify_message(stream);
     // storage::test_get_conn_map();
     // storage::test_add_conn();
     // let username = storage::read_username().unwrap();

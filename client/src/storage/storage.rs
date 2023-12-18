@@ -41,8 +41,7 @@ connX:
 use std::fs::{self, File, OpenOptions};
 use home::home_dir;
 use std::path::PathBuf;
-use std::io::{self, Read, Write, BufRead, Error};
-use std::collections::HashMap;
+use std::io::{self, Read, Write, BufRead};
 use protocol::{self, field_lens, ChatMessage};
 use super::conn_map;
 
@@ -270,7 +269,7 @@ pub fn read_messages(uname: String) -> Option<Vec<ChatMessage>> {
     let mut file_reader = io::BufReader::new(file);
     let mut messages: Vec<ChatMessage> = Vec::new();
 
-    while true {
+    loop {
         // read magic bytes
         let mut magic_bytes_buffer = [0u8; NUM_MAGIC_BYTES];
         match file_reader.read_exact(&mut magic_bytes_buffer) {

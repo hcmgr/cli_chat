@@ -6,7 +6,7 @@ Handles all communication with the server.
 See 'protocol' crate for explanation of the cli_chat protocol
 */
 
-use std::io::{self, Read, Write};
+use std::io::{Read, Write};
 use std::net::TcpStream;
 use std::error::Error;
 

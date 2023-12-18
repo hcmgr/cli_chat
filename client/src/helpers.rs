@@ -1,5 +1,5 @@
 // miscellaneous helper functions
-use sha256::{digest, try_digest};
+use sha256::digest;
 
 /*
 Returns a sha256 digest for the given array of bytes
