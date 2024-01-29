@@ -10,29 +10,20 @@ use std::io::{Read, Write};
 use std::net::TcpStream;
 use std::error::Error;
 
-use protocol::{Packet, ChatMessage, C2sSignup, S2cSignup, C2sVerify, C2cConnReq, C2cConnResp};
-use protocol::{self, field_lens, message_type, errors, shared};
-use message_type::{MessageType, method_num_to_message_type};
-
-/**
-Reads a 'Packet' (see 'protocol' crate) from the server TCP scoket.
-*/
-fn read_packet(mut stream: TcpStream) -> Result<Packet, Box<dyn Error>> {
-    let mut packet_buffer = [0u8; field_lens::MAX_PACKET_LEN];
-    let bytes_read = stream.read(&mut packet_buffer)?;
-    let packet = Packet::deserialize(&packet_buffer)?;
-
-    Ok(packet)
-}
+use protocol::{Packet, ChatMessage, SignupReq, SignupResp, VerifyReq, VerifyResp, C2cConnReq, C2cConnResp};
+use protocol::{self, field_lens, message_types, errors, shared, status_codes};
+use message_types::{MessageType, method_num_to_message_type};
 
 /**
 General handler for all protocol message-types
+
+TODO: implement for rest of message types
 */
 fn handle_message(mut stream: TcpStream) -> Result<(), Box<dyn Error>> {
-    let packet = read_packet(stream)?;
+    let packet = protocol::read_packet(stream)?;
     let message_type = method_num_to_message_type(packet.method);
     match message_type {
-        MessageType::C2sVerify => handle_verify_message(packet),
+        MessageType::VerifyReq => handle_verify_message(packet),
         _ => Ok(())
     };
 
@@ -40,10 +31,10 @@ fn handle_message(mut stream: TcpStream) -> Result<(), Box<dyn Error>> {
 }
 
 /**
-Handles server response to a C2sVerify message
+Handles server response to a VerifyReq message
 */
 fn handle_verify_message(packet: Packet) -> Result<(), Box<dyn Error>> {
-    let ver_msg = C2sVerify::deserialize(&packet.msg_buffer)?;
+    let ver_msg = VerifyReq::deserialize(&packet.msg_buffer)?;
     println!("Received verify response:\n\n{:?}", ver_msg);
     Ok(())
 }
@@ -54,18 +45,24 @@ pub mod tests {
     use super::*;
     use crate::storage::storage;
 
-    pub fn test_verify_message(mut stream: TcpStream) -> Result<(), Box<dyn Error>> {
+    pub fn test_verify_req(mut stream: TcpStream) -> Result<(), Box<dyn Error>> {
         let username = storage::read_username()?;
         let token = storage::read_token()?;
-        let mut verify = C2sVerify::new(&protocol::shared::uname_to_string(username), token);
+        let mut verify_req = VerifyReq::new(&protocol::shared::uname_to_string(username), token);
         let mut packet = Packet::new(
-            MessageType::C2sVerify as u8, 
-            verify.length() as u32, 
-            verify.serialize());
+            MessageType::VerifyReq as u8, 
+            verify_req.length() as u32, 
+            verify_req.serialize());
 
-        stream.write_all(&packet.serialize());
-        handle_message(stream).unwrap();
+        // stream.write_all(&packet.serialize());
+        stream.write_all(&verify_req.serialize());
+        // handle_message(stream).unwrap();
 
         Ok(())
+    }
+
+    pub fn test_verify_resp() {
+        let verify_resp = VerifyResp::new(status_codes::StatusCode::Success);
+        println!("{:?}", verify_resp);
     }
 }

@@ -1,30 +1,27 @@
-use crate::field_lens::{ UNAME_LEN, TOKEN_LEN};
+use crate::field_lens::{ UNAME_LEN, TOKEN_LEN, ERR_CODE_LEN};
+use crate::status_codes::{self, StatusCode};
 use std::fmt;
 use crate::errors::LengthError;
 use std::error::Error;
 
 /**
 Protocol message: client verifying itself upon connecting with server
-
-NOTE: server-to-client (S2c):
-    acceptance: empty packet with unique 'verify-accept' method header
-    denial: empty packet with unqique 'verify-deny' method header
 */
-pub struct C2sVerify {
+pub struct VerifyReq {
     pub cli_uname: [u8; UNAME_LEN],
     pub token: [u8; TOKEN_LEN],
 }
 
-impl C2sVerify {
+impl VerifyReq {
     pub fn empty() -> Self {
-        C2sVerify {
+        VerifyReq {
             cli_uname: [0u8; UNAME_LEN],
             token: [0u8; TOKEN_LEN]
         }
     }
 
     pub fn new(c_uname: &str, token: [u8; TOKEN_LEN]) -> Self {
-        let mut verify = C2sVerify::empty();
+        let mut verify = VerifyReq::empty();
         crate::shared::set_uname(&mut verify.cli_uname, c_uname);
         if token.len() != TOKEN_LEN {
             println!("Tokens must be 32 bytes");
@@ -44,23 +41,24 @@ impl C2sVerify {
     }
 
     pub fn deserialize(bytes: &[u8]) -> Result<Self, Box<dyn Error>> {
-        if bytes.len() != C2sVerify::fixed_size() {
+        println!("bytes len: {:?}, fixed size: {:?}", bytes.len(), VerifyReq::fixed_size());
+        if bytes.len() != VerifyReq::fixed_size() {
             return Err(Box::new(LengthError));
         }
 
         let mut cli_uname = [0u8; UNAME_LEN];
         let mut token = [0u8; TOKEN_LEN];
         cli_uname.copy_from_slice(&bytes[..UNAME_LEN]);
-        token.copy_from_slice(&bytes[UNAME_LEN .. C2sVerify::fixed_size()]);
+        token.copy_from_slice(&bytes[UNAME_LEN .. VerifyReq::fixed_size()]);
 
-        Ok (C2sVerify {
+        Ok (VerifyReq {
             cli_uname,
             token
         })
     }
 
     pub fn length(&self) -> usize {
-        C2sVerify::fixed_size()
+        VerifyReq::fixed_size()
     }
 
     fn fixed_size() -> usize {
@@ -68,13 +66,65 @@ impl C2sVerify {
     }
 }
 
-impl fmt::Debug for C2sVerify {
+impl fmt::Debug for VerifyReq {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "C2sVerify {{ cli_uname: {}, token: {} }}",
+            "VerifyReq {{ cli_uname: {}, token: {} }}",
             crate::shared::uname_to_string(self.cli_uname),
             crate::shared::token_to_string(self.token)
+        )
+    }
+}
+
+/**
+Protocol message: Server response to client verify request
+*/
+pub struct VerifyResp {
+    pub status_code: StatusCode
+}
+
+impl VerifyResp {
+    pub fn new(code: StatusCode) -> Self {
+        VerifyResp {
+            status_code: code
+        }
+    }
+
+    pub fn serialize(&self) -> Vec<u8> {
+        let mut buffer = Vec::new();
+        buffer.push(self.status_code.clone() as u8);
+
+        buffer
+    }
+
+    pub fn deserialize(bytes: &[u8]) -> Result<Self, Box<dyn Error>> {
+        if bytes.len() != VerifyResp::fixed_size() {
+            return Err(Box::new(LengthError));
+        }
+
+        let status_code = status_codes::decode_status_code(bytes[0]);
+
+        Ok (VerifyResp {
+            status_code
+        })
+    }
+
+    pub fn length(&self) -> usize {
+        VerifyResp::fixed_size()
+    }
+
+    fn fixed_size() -> usize {
+        ERR_CODE_LEN
+    }
+}
+
+impl fmt::Debug for VerifyResp {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "VerifyResp {{ status_code: {} }}",
+            self.status_code.to_string()
         )
     }
 }

@@ -3,12 +3,7 @@ use std::error::Error;
 use crate::errors::LengthError;
 
 /**
-Wrapper-message for all other protocol messages:
-
-    method - message-type
-    length - length of message buffer
-    message_buffer - holds at most one protocol message
-
+MTU (maximum transmission unit) of the protocol. Acts as a wrapper for all protocol messages.
 */
 pub struct Packet {
     pub method: u8,

@@ -51,10 +51,10 @@ impl Root<'_> {
 
     fn render_bottom_bar(&self, area: Rect, buf: &mut Buffer) {
         let keys = [
-            ("Q/Esc", "Quit"),
-            ("Tab", "Next Tab"),
             ("↑/k", "Up"),
             ("↓/j", "Down"),
+            ("Tab", "Next"),
+            ("Q", "Quit"),
         ];
         let spans = keys
             .iter()

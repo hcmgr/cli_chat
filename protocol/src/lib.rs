@@ -1,3 +1,30 @@
+/**
+-----------------
+Cli-chat protocol
+-----------------
+
+Protocol units are 'messages', each of which is sent wrapped in a Packet (see packet.rs).
+
+The message types are:
+
+    ChatMessage:
+        - client sending a chat message to a mutual connection
+
+    VerifyReq/VerifyResp:
+        - sent at the start of every cli-chat session
+        - user authenticates themselves by sending their username and previously-assigned PAT token
+    
+    SignupReq/SignupResp:
+        - sends new user's chosen username to server
+        - on success, server sends back PAT token
+    
+    C2cConnReq/C2cConnResp:
+        - user requests to 'connect' with another user (based on username)
+        - server relays this on to target user
+        - on accept, clients add each other to their respective 'connections-list' stores,
+          and can now send messages to each other
+*/
+
 // Bring in and re-export all protocol message types
 pub mod packet;
 pub mod chat_message;
@@ -6,36 +33,66 @@ pub mod signup;
 pub mod connect;
 pub use packet::Packet;
 pub use chat_message::ChatMessage;
-pub use verify::C2sVerify;
-pub use signup::{ C2sSignup, S2cSignup};
+pub use verify::{ VerifyReq, VerifyResp };
+pub use signup::{ SignupReq, SignupResp };
 pub use connect::{ C2cConnReq, C2cConnResp};
 
-/**
-Each possible protocol message is assigned a unique method number, used to identify
-it in the Protocol.method field.
-*/
-pub mod message_type {
+use std::io::{Read, Write};
+use std::net::TcpStream;
+use std::error::Error;
+
+// protocol message types
+pub mod message_types {
     pub enum MessageType {
-        ChatMessage = 0,
-        C2sVerify = 1,
-        C2sSignup = 2,
-        S2cSignup = 3,
-        C2cConnReq = 4,
-        C2cConnResp = 5,
+        ChatMessage,
+        VerifyReq,
+        VerifyResp,
+        SignupReq,
+        SignupResp,
+        C2cConnReq,
+        C2cConnResp,
         Invalid
     }
 
     pub fn method_num_to_message_type(index: u8) -> MessageType {
-        let mt = match index {
+        match index {
             0 => MessageType::ChatMessage,
-            1 => MessageType::C2sVerify,
-            2 => MessageType::C2sSignup,
-            3 => MessageType::S2cSignup, 
-            4 => MessageType::C2cConnReq,
-            5 => MessageType::C2cConnResp,
+            1 => MessageType::VerifyReq,
+            2 => MessageType::VerifyResp,
+            3 => MessageType::SignupReq, 
+            4 => MessageType::SignupResp,
+            5 => MessageType::C2cConnReq,
+            6 => MessageType::C2cConnResp,
             _ => MessageType::Invalid
-        };
-        mt
+        }
+    }
+}
+
+// protocol status codes
+pub mod status_codes {
+    #[derive(Copy, Clone)]
+    pub enum StatusCode {
+        Success,
+        Failure,
+        Invalid
+    }
+
+    pub fn decode_status_code(status_code: u8) -> StatusCode {
+        match status_code {
+            0 => StatusCode::Success,
+            1 => StatusCode::Failure,
+            _ => StatusCode::Invalid
+        }
+    }
+
+    impl ToString for StatusCode {
+        fn to_string(&self) -> String {
+            match self {
+                StatusCode::Success => String::from("Success"),
+                StatusCode::Failure => String::from("Failure"),
+                StatusCode::Invalid => String::from("Invalid"),
+            }
+        }
     }
 }
 
@@ -45,11 +102,11 @@ pub mod field_lens {
     pub const MSGLEN_LEN: usize = 4;
     pub const TOKEN_LEN: usize = 32;
     pub const METHOD_LEN: usize = 1;
-    pub const ERR_CODE_LEN: usize = 4;
+    pub const ERR_CODE_LEN: usize = 1;
     pub const MAX_PACKET_LEN: usize = 1024;
 }
 
-// defines all errors used by protocol
+// custom errors
 pub mod errors {
     use std::fmt;
     use std::error::Error;
@@ -66,13 +123,23 @@ pub mod errors {
     impl Error for LengthError {}
 }
 
+// Reads a 'Packet' (see packet.rs) from the given server TCP scoket
+pub fn read_packet(mut stream: TcpStream) -> Result<Packet, Box<dyn Error>> {
+    let mut packet_buffer = [0u8; field_lens::MAX_PACKET_LEN];
+    let bytes_read = stream.read(&mut packet_buffer)?;
+    let packet = Packet::deserialize(&packet_buffer)?;
+
+    Ok(packet)
+}
+
 // miscellaneous helper functions used by all protocol code
 pub mod shared {
     use rand::Rng;
+    use crate::field_lens;
 
-    // sets username field of an arbitrary protocol message 
+    // Sets username field of an arbitrary protocol message 
     pub fn set_uname(target: &mut [u8], new_send_uname: &str) {
-        if new_send_uname.len() <= crate::field_lens::UNAME_LEN {
+        if new_send_uname.len() <= field_lens::UNAME_LEN {
             target[..new_send_uname.len()].copy_from_slice(new_send_uname.as_bytes());
         } else {
             println!(
@@ -82,9 +149,10 @@ pub mod shared {
         }
     }
 
-    pub fn generate_token() -> [u8; 32] {
+    // 32-byte token generator
+    pub fn generate_token() -> [u8; field_lens::TOKEN_LEN] {
         let mut rng = rand::thread_rng();
-        let token: [u8; 32] = rng.gen();
+        let token: [u8; field_lens::TOKEN_LEN] = rng.gen();
 
         token
     }
@@ -108,6 +176,7 @@ pub mod shared {
         String::from_utf8_lossy(uname_slice).to_string()
     }
 
+    // Converts a token from its byte-rep to string-rep
     pub fn token_to_string(token: [u8; crate::field_lens::TOKEN_LEN]) -> String {
         let mut result = String::from("0x");
         for byte in token.iter() {

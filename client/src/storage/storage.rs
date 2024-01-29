@@ -53,8 +53,7 @@ pub const CONN_DIR_NAME: &str = "connections";
 pub const CONN_FILE_PREFIX: &str = "conn";
 
 pub const NUM_MAGIC_BYTES: usize = 4;
-// pub const MAGIC_BYTES: [u8; NUM_MAGIC_BYTES] = [114, 97, 99, 107];
-pub const MAGIC_BYTES: [u8; NUM_MAGIC_BYTES] = [45, 45, 45, 45];
+pub const MAGIC_BYTES: [u8; NUM_MAGIC_BYTES] = [114, 97, 99, 107];
 
 /**
 Returns path of cli_chat root directory
